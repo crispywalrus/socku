@@ -1,4 +1,6 @@
 
+import NativePackagerKeys._
+
 name := "socku"
 
 organization := "net.crispywalrus"
@@ -15,3 +17,5 @@ libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "2.2.3",
   "com.typesafe.akka" %% "akka-testkit" % AkkaVer
 )
+
+packageArchetype.java_application
