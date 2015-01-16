@@ -23,7 +23,7 @@ object SockuApp extends App {
     }
   })
 
-  val webServer = new WebServer(WebServerConfig(port=80), routes, system)
+  val webServer = new WebServer(WebServerConfig(port=8080), routes, system)
   webServer.start()
 
   Runtime.getRuntime.addShutdownHook(new Thread {
