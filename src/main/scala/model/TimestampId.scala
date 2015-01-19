@@ -1,3 +1,6 @@
+package net.crispywalrus
+package socku
+package model
 
 import akka.actor.{ Actor, ActorLogging }
 import akka.event.Logging

@@ -1,3 +1,6 @@
+package net.crispywalrus
+package socku
+package model
 
 import com.typesafe.config.ConfigFactory
 import org.scalatest._, Matchers._
