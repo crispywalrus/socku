@@ -3,7 +3,7 @@ package net.crispywalrus.socku
 import org.mashupbots.socko.events._
 import org.mashupbots.socko.routes._
 import org.mashupbots.socko.webserver.{ WebServer, WebServerConfig }
-import akka.actor.{ Actor, ActorSystem, Props }
+import akka.actor._
 import akka.stream._
 import akka.stream.actor.ActorPublisher
 
@@ -26,6 +26,12 @@ object SockuApp extends App {
 
   val stream = system.actorOf(Props[GetStream], "stream")
 
+  object SockuWebConfig extends ExtensionId[WebServerConfig] with ExtensionIdProvider {
+    override def lookup = SockuWebConfig
+    override def createExtension(system: ExtendedActorSystem) =
+      new WebServerConfig(system.settings.config, "socku-http")
+  }
+
   val routes = Routes({
     case HttpRequest(request) => request match {
       case GET(Path("/favicon.ico")) => request.response.write(HttpResponseStatus.NOT_FOUND)
@@ -33,7 +39,9 @@ object SockuApp extends App {
     }
   })
 
-  val webServer = new WebServer(WebServerConfig(), routes, system)
+  val sockuWebConfig = SockuWebConfig(system)
+
+  val webServer = new WebServer(sockuWebConfig, routes, system)
   webServer.start()
 
   Runtime.getRuntime.addShutdownHook(new Thread {
