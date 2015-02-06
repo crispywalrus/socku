@@ -1,4 +1,5 @@
-package net.crispywalrus.socku
+package net.crispywalrus
+package socku
 
 import org.mashupbots.socko.events._
 import org.mashupbots.socko.routes._
@@ -9,6 +10,7 @@ import akka.stream.actor.ActorPublisher
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule
+import io.orchestrate.client._
 
 case class Something(event: HttpRequestEvent)
 
@@ -18,13 +20,16 @@ class GetStream extends ActorPublisher[HttpRequestEvent] {
     case msg: Something => {
       count += 1
       msg.event.response.write(
-        """{'GET %s, %s'}""".format(msg.event.request.endPoint.path, count),
+        """{"GET %s", "%s"}""".format(msg.event.request.endPoint.path, count),
         "application/json"
       )
     }
   }
 }
 
+/**
+ * this is rapidly becoming a rubbish tip for any and every piece of global-ish trash
+ */
 object SockuApp extends App {
 
   implicit val system = ActorSystem("SockuWebapp")

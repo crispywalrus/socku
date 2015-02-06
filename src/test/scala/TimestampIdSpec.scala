@@ -1,6 +1,6 @@
 package net.crispywalrus
 package socku
-package model
+package coordination
 
 import com.typesafe.config.ConfigFactory
 import org.scalatest._, Matchers._
@@ -10,13 +10,12 @@ import akka.testkit.{ TestActors, DefaultTimeout, ImplicitSender, TestActorRef, 
 import scala.concurrent._
 import scala.concurrent.duration._
 
-class TimestampSpec
-  extends TestKit(
-    ActorSystem(
-      "TimestampSpec",
-      ConfigFactory.parseString(TimestampSpecConfig.config)
-    )
+class TimestampSpec extends TestKit(
+  ActorSystem(
+    "TimestampSpec",
+    ConfigFactory.parseString(TimestampSpecConfig.config)
   )
+)
   with FlatSpecLike with BeforeAndAfterAll with DefaultTimeout {
 
   val f = 1593626063592751104L
@@ -51,11 +50,14 @@ class TimestampSpec
   }
 
   "StringTimestamp" should "generate unique ids" in {
+    var rounds = 0
     val ids = scala.collection.mutable.Set[String]()
     (1L to 1000L).foreach(i ⇒ {
+      rounds = rounds + 1
       val f = ask(stringstamp, "next")
-      ids += Await.result(f.asInstanceOf[Future[String]], 2 second)
+      ids += Await.result(f.asInstanceOf[Future[String]], 10 second)
     })
+    println("rounds " + rounds)
     ids.size should be(1000)
   }
 

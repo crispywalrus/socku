@@ -1,6 +1,6 @@
 package net.crispywalrus
 package socku
-package model
+package coordination
 
 import akka.actor.{ Actor, ActorLogging }
 import akka.event.Logging
@@ -42,23 +42,6 @@ trait Generator[T] {
 
     // nasty bit match to make a 64 bit number out of all our components
     finish(timestamp, timestampShift, clusterId, clusterIdShift, workerId, workerIdShift, sequence)
-  }
-
-  def base62(value: BigInt) = {
-    def toChar(digit: Int) = {
-      if (digit < 10) '0' + digit
-      else if (digit < 36) 'A' + digit - 10
-      else 'a' + digit - 36
-    }.asInstanceOf[Char]
-
-    def convert(bi: BigInt): String = {
-      if (bi == 0) ""
-      else {
-        val (div, rem: BigInt) = bi /% 62
-        toChar(rem.toInt) + convert(div)
-      }
-    }
-    convert(value).reverse.toString
   }
 
   def tilNextMillis(lastTimestamp: Long): Long = {
