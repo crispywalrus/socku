@@ -33,7 +33,7 @@ class GetStream extends ActorPublisher[HttpRequestEvent] {
 object SockuApp extends App {
 
   implicit val system = ActorSystem("SockuWebapp")
-  implicit val materializer = FlowMaterializer()
+  implicit val materializer = ActorFlowMaterializer()
 
   val mapper = new ObjectMapper()
   mapper.registerModule(DefaultScalaModule)
