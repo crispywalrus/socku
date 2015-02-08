@@ -20,7 +20,7 @@ class GetStream extends ActorPublisher[HttpRequestEvent] {
     case msg: Something => {
       count += 1
       msg.event.response.write(
-        """{"GET %s", "%s"}""".format(msg.event.request.endPoint.path, count),
+        """["GET %s", "%s"]""".format(msg.event.request.endPoint.path, count),
         "application/json"
       )
     }
