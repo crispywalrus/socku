@@ -8,13 +8,16 @@ import akka.stream.actor.ActorPublisher
 import org.mashupbots.socko.events._
 import org.mashupbots.socko.routes._
 
-class GetUser extends Actor {
+object WsFlowHandler {
+  def props: Props = Props[WsFlowHandler]
+}
+
+class WsFlowHandler extends ActorPublisher[WebSocketFrameEvent] {
+  var count = 0
   def receive = {
-    case HttpRequest(request) => request match {
-      case GET(Path("/user")) => {
-        // get user defined in request or not
-        request.response.write(HttpResponseStatus.NOT_FOUND)
-      }
+    case event: WebSocketHandshakeEvent => {
+    }
+    case event: WebSocketFrameEvent => {
     }
   }
 }

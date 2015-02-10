@@ -11,21 +11,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule
 import io.orchestrate.client._
-
-case class Something(event: HttpRequestEvent)
-
-class GetStream extends ActorPublisher[HttpRequestEvent] {
-  var count = 0
-  def receive = {
-    case msg: Something => {
-      count += 1
-      msg.event.response.write(
-        """["GET %s", "%s"]""".format(msg.event.request.endPoint.path, count),
-        "application/json"
-      )
-    }
-  }
-}
+import net.crispywalrus.socku.handlers._
+import com.softwaremill.macwire.MacwireMacros._
 
 /**
  * this is rapidly becoming a rubbish tip for any and every piece of global-ish trash
@@ -49,11 +36,14 @@ object SockuApp extends App {
   val routes = Routes({
     case HttpRequest(request) => request match {
       case GET(Path("/favicon.ico")) => request.response.write(HttpResponseStatus.NOT_FOUND)
-      case GET(_) => stream ! Something(request)
+      case GET(_) => http ! request
     }
+    case WebSocketFrame(frame) => ws ! frame
+    case WebSocketHandshake(handshake) => ws ! handshake
   })
 
-  val stream = system.actorOf(Props[GetStream], "stream")
+  val http = system.actorOf(HttpFlowHandler.props, "webflower")
+  val ws = system.actorOf(WsFlowHandler.props, "websocket")
 
   val webServer = new WebServer(sockuWebConfig, routes, system)
   webServer.start()
