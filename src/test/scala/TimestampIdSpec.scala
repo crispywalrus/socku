@@ -26,9 +26,9 @@ class TimestampSpec extends TestKit(
 
   import system.dispatcher
 
-  val longstamp = system.actorOf(Props(new LongTimestamp(0, 0)))
-  val bigintstamp = system.actorOf(Props(new BigIntTimestamp(0)))
-  val stringstamp = system.actorOf(Props(new StringTimestamp(0)))
+  val longstamp = system.actorOf(Props(new LongClockTimestamp(0, 0)))
+  val bigintstamp = system.actorOf(Props(new BigIntClockTimestamp(0)))
+  val stringstamp = system.actorOf(Props(new StringClockTimestamp(0)))
 
   "LongTimestamp" should "generate an id per call" in {
     val z = ask(longstamp, "next") map { x =>

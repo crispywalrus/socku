@@ -11,6 +11,11 @@ import org.scalatest._, Matchers._
 import collection.JavaConversions._
 import scala.concurrent._
 import scala.concurrent.duration._
+import java.util.Date
+
+case class S(name: String,description: String,ts: List[T])
+case class T(created: Date,updated: Date,name: String,us: List[U])
+case class U(created: Date,createdBy: S,name: String,body: String)
 
 class OrchestrateSpec extends FlatSpec with Matchers {
 

@@ -5,7 +5,23 @@ package coordination
 import akka.actor.{ Actor, ActorLogging }
 import akka.event.Logging
 
-trait Generator[T] {
+/**
+  *  any one of the lamport timestamp family. They can be intialized
+  *  and use a counter or use the system clock to generate new values
+  *  depending on need.
+  */
+trait Timestamp[T] {
+  def next: T
+}
+
+/**
+  * the internal values of this family of timestamps comes from the
+  * system clock. as such they are fairly indepent and can be created
+  * and recreated easily. the downside is the millisecond resolution
+  * of the system clock, this requires an internal counter to allow
+  * higher frequency generation.
+  */
+trait ClockTimestamp[T] extends Timestamp[T] {
   val epoch = 1041654066000L // start epoch at January 3,2003 21:21 PST
   var lastTimestamp = -1L
   var sequence: Long
@@ -19,7 +35,7 @@ trait Generator[T] {
   def finish(timestamp: Long, timestampShift: Long, clusterId: Long, clusterIdShift: Long, workerId: Long, workerIdShift: Long, sequence: Long): T
 
   def next: T = {
-    var timestamp = timeGen()
+    var timestamp = millis
 
     if (timestamp < lastTimestamp) {
       // current millis is less than previous millis,bitch about it
@@ -45,14 +61,14 @@ trait Generator[T] {
   }
 
   def tilNextMillis(lastTimestamp: Long): Long = {
-    var timestamp = timeGen()
+    var timestamp = millis
     while (timestamp <= lastTimestamp) {
-      timestamp = timeGen()
+      timestamp = millis
     }
     timestamp
   }
 
-  def timeGen(): Long = System.currentTimeMillis()
+  def millis: Long = System.currentTimeMillis()
 }
 
 /**
@@ -62,14 +78,14 @@ trait Generator[T] {
  * and allows for 8k timestamps per millisecond.
  *
  */
-class LongTimestamp(
+class LongClockTimestamp(
   val workerId: Long,
   val clusterId: Long,
   workerIdBits: Long = 8L,
   clusterIdBits: Long = 2L,
   var sequence: Long = 0L,
   val sequenceBits: Long = 12L
-) extends Actor with Generator[Long] {
+) extends Actor with ClockTimestamp[Long] {
   val maxWorkerId = -1L ^ (-1L << workerIdBits)
   val maxClusterId = -1L ^ (-1L << clusterIdBits)
   val workerIdShift = sequenceBits
@@ -103,12 +119,12 @@ class LongTimestamp(
 /**
  *  generate a 128 bit snowflake id as a base 62 encoded string.
  */
-class BigIntTimestamp(
+class BigIntClockTimestamp(
   val workerId: Long,
   workerIdBits: Long = 48L,
   var sequence: Long = 0L,
   sequenceBits: Long = 16L
-) extends Actor with Generator[BigInt] {
+) extends Actor with ClockTimestamp[BigInt] {
   val maxWorkerId = -1L ^ (-1L << workerIdBits)
   val workerIdShift = sequenceBits
   val timestampShift = 64L
@@ -129,12 +145,12 @@ class BigIntTimestamp(
 /**
  *  generate a 128 bit snowflake id as a base 62 encoded string.
  */
-class StringTimestamp(
+class StringClockTimestamp(
   val workerId: Long,
   workerIdBits: Long = 48L,
   var sequence: Long = 0L,
   sequenceBits: Long = 16L
-) extends Actor with Generator[String] {
+) extends Actor with ClockTimestamp[String] {
   val maxWorkerId = -1L ^ (-1L << workerIdBits)
   val workerIdShift = sequenceBits
   val timestampShift = 64L

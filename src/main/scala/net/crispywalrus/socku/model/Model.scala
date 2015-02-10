@@ -2,23 +2,32 @@ package net.crispywalrus
 package socku
 package model
 
-import java.util.Date //FIXME!
 import simulacrum._
 import machinist.DefaultOps
+import scala.concurrent.Future
 import scala.language.implicitConversions
-import scala.reflect.ClassTag
 
 trait Key {
   def key: String
 }
 
-trait Entity[E,M] {
-  def get(k: Key): E
-  def put(k: Key,e: E): M
-  def delete(k: Key): M
+trait VersionedKey extends Key {
+  def ref: String
 }
 
-case class S(name: String,description: String,ts: List[T])
-case class T(created: Date,updated: Date,name: String,us: List[U])
-case class U(created: Date,createdBy: S,name: String,body: String)
+trait KvStore[T,M] {
+  def get(key: Key): Future[Option[T]]
+  def get(key: VersionedKey): Future[Option[T]]
+  def list(limit: Int): Future[List[T]]
+  def put(key: Key,value: T): Future[M]
+  def put(key: VersionedKey,value: T): Future[M]
+  def insert(key: Key,value: T): Future[M]
+  def patch(key: Key,adds: Map[String,String],moves: Map[String,String],tests: Map[String,String]): Future[M]
+  def patch(key: VersionedKey,adds: Map[String,String],moves: Map[String,String],tests: Map[String,String]): Future[M]
+  def delete(key: Key,purge: Boolean): Future[Boolean]
+}
 
+trait GraphStore[T] {
+  def get(key: Key,relation: Symbol): Future[AnyRef]
+  def put(source: Key,related: Key,relation: Symbol): Future[Boolean]
+}
