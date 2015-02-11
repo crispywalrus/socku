@@ -25,10 +25,11 @@ trait KvStore[T] {
   def insert(key: Key,value: T): Future[VersionedKey]
   def patch(key: Key,adds: Map[String,String],moves: Map[String,String],tests: Map[String,String]): Future[VersionedKey]
   def patch(key: VersionedKey,adds: Map[String,String],moves: Map[String,String],tests: Map[String,String]): Future[VersionedKey]
-  def delete(key: Key,purge: Boolean): Future[Boolean]
+  def delete(key: Key): Future[Boolean]
 }
 
-trait GraphStore[T] {
-  def get(key: Key,relation: Symbol): Future[AnyRef]
+trait GraphStore[T,Q] {
+  def get(key: Key,relation: Symbol): Future[Q]
   def put(source: Key,related: Key,relation: Symbol): Future[Boolean]
+  def delete(origin: Key,related: Key)
 }

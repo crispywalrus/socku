@@ -36,9 +36,10 @@ class OrchestrateSpec extends FlatSpec with Matchers {
     list.map(u => u.getValue.name)
   }
 
-  val bobKey = KvKey("ralph")
-  val ralphKey = KvKey("ralph")
+  val bobKey: Key  = c("ralph")
   val bob = new S("bob","sometext",List())
+
+  val ralphKey: Key = c("ralph")
   val ralph = new S("ralph","ralphs text",List())
 
   "Collection" should "support put kv operation" in {
@@ -55,6 +56,6 @@ class OrchestrateSpec extends FlatSpec with Matchers {
     u.map(usr => usr.name should === ("ralph")).getOrElse(false should === (true))
   }
   it should "support delete kv operation" in {
-    Await.result(c.delete(KvKey("bob"),true),1 second) should === (true)
+    Await.result(c.delete(c("bob")),1 second) should === (true)
   }
 }

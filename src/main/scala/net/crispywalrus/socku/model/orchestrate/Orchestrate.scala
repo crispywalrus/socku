@@ -11,14 +11,20 @@ import reflect.ClassTag
 import scala.util.{ Try, Success, Failure }
 import scala.language.implicitConversions
 
-case class KvKey(key: String) extends Key
-case class KvRefKey(key: String, ref: String) extends VersionedKey
+trait KeyedCollection[T] {
+  case class KvKey(key: String,collection: String) extends Key
+  case class KvRefKey(key: String, ref: String,collection: String) extends VersionedKey
+
+  def collection: String
+  def apply(key: String): Key = KvKey(key,collection)
+  def apply(key: String,ref: String): VersionedKey = KvRefKey(key,ref,collection)
+}
 
 /**
  * collections are groupings of a single type of object so we model
  * it as a typed collection with a custom api.
  */
-class Collection[T: ClassTag](client: OrchestrateClient, collection: String) extends KvStore[T] {
+class Collection[T: ClassTag](client: OrchestrateClient,val collection: String) extends KeyedCollection[T] with KvStore[T] {
 
   def search: CollectionSearchResource = client.searchCollection(collection)
   def events(key: Key): EventResource = client.event(collection, key.key)
@@ -39,7 +45,7 @@ class Collection[T: ClassTag](client: OrchestrateClient, collection: String) ext
    * to an anonymous closure.
    */
   val metafunc: id[KvMetadata, KvMetadata] = { identity(_) }
-  val keyfunc: id[KvMetadata, VersionedKey] = (m: KvMetadata) => KvRefKey(m.getKey, m.getRef)
+  val keyfunc: id[KvMetadata, VersionedKey] = (m: KvMetadata) => KvRefKey(m.getKey, m.getRef, collection)
   val getf: id[KvObject[T], Option[T]] = (o: KvObject[T]) => if (o != null) Option(o.getValue) else None
   val listf: id[KvList[T], List[T]] = (lr: KvList[T]) => lr.iterator().map(kvo => kvo.getValue).toList
   val deletef: id[java.lang.Boolean, Boolean] = (o: java.lang.Boolean) => o
@@ -78,7 +84,7 @@ class Collection[T: ClassTag](client: OrchestrateClient, collection: String) ext
    * unconditionally delete the value at key. if purge is true then
    * the key and ref history is deleted.
    */
-  def delete(key: Key, purge: Boolean = false): Future[Boolean] = mkFuture(resource(key).delete(purge), deletef)
+  def delete(key: Key): Future[Boolean] = mkFuture(resource(key).delete(true), deletef)
 
   /**
    * upsert a value into the store and autogenerate a key.
