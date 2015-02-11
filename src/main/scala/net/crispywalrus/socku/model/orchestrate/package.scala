@@ -12,6 +12,8 @@ import scala.language.implicitConversions
 
 package object orchestrate {
 
+  type id[K, T] = (K) => T
+
   val config = ConfigFactory.load().getConfig("socku-orchestrate")
 
   def mkClient(mapper: ObjectMapper,config: Config = config) = OrchestrateClient.builder(config.getString("apiKey"))

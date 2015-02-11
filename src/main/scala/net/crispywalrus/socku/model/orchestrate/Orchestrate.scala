@@ -12,125 +12,140 @@ import scala.util.{ Try, Success, Failure }
 import scala.language.implicitConversions
 
 case class KvKey(key: String) extends Key
-case class KvRefKey(key: String,ref: String) extends VersionedKey
+case class KvRefKey(key: String, ref: String) extends VersionedKey
 
 /**
  * collections are groupings of a single type of object so we model
  * it as a typed collection with a custom api.
  */
-class Collection[T : ClassTag](client: OrchestrateClient,collection: String) extends KvStore[T,KvMetadata] {
-
-  type id[K, T] = (K) => T
+class Collection[T: ClassTag](client: OrchestrateClient, collection: String) extends KvStore[T] {
 
   def search: CollectionSearchResource = client.searchCollection(collection)
-  def events(key: Key): EventResource = client.event(collection,key.key)
-  def relation(key: Key): RelationResource = client.relation(collection,key.key)
+  def events(key: Key): EventResource = client.event(collection, key.key)
+  def relation(key: Key): RelationResource = client.relation(collection, key.key)
   def resource(key: Key): KvResource = client.kv(collection, key.key)
   def resource(key: VersionedKey): KvResource = client.kv(collection, key.key)
   def resource: KvListResource = client.listCollection(collection)
 
-  def cb[K, T](s: id[K, T], p: Promise[T]): ResponseAdapter[K] = {
-    new ResponseAdapter[K]() {
-      override def onSuccess(obj: K) = p.success(s(obj))
-      override def onFailure(ex: Throwable) = p.failure(ex)
-    }
+  def cb[K, T](s: id[K, T], p: Promise[T]): ResponseAdapter[K] = new ResponseAdapter[K]() {
+    override def onSuccess(obj: K) = p.success(s(obj))
+    override def onFailure(ex: Throwable) = p.failure(ex)
   }
 
   /**
-    * many methods return metadata, this does the identity transform for them
-    */
-  def metafunc: id[KvMetadata, KvMetadata] = (kvm: KvMetadata) => kvm
+   * many methods return metadata, this does the identity transform
+   * for them. In order for the compiler to understand the types this
+   * function needs to have a type attached, so there's no advantage
+   * to an anonymous closure.
+   */
+  val metafunc: id[KvMetadata, KvMetadata] = { identity(_) }
+  val keyfunc: id[KvMetadata, VersionedKey] = (m: KvMetadata) => KvRefKey(m.getKey, m.getRef)
+  val getf: id[KvObject[T], Option[T]] = (o: KvObject[T]) => if (o != null) Option(o.getValue) else None
+  val listf: id[KvList[T], List[T]] = (lr: KvList[T]) => lr.iterator().map(kvo => kvo.getValue).toList
+  val deletef: id[java.lang.Boolean, Boolean] = (o: java.lang.Boolean) => o
 
-  /**
-    * get the latest value associated with the given key
-    */
-  def get(key: Key): Future[Option[T]] = {
-    def getf[Z]: id[KvObject[Z], Option[Z]] = (o: KvObject[Z]) => if (o != null) Option(o.getValue) else None
-    val p = Promise[Option[T]]()
-    resource(key).get(classy[T]).on(cb[KvObject[T], Option[T]](getf, p))
-    p.future
-  }
-
-  /**
-    * get a specific version of a key, this could actually be a value
-    * from back in history and not the current value.
-    */
-  def get(key: VersionedKey): Future[Option[T]] = {
-    def getf: id[KvObject[T],Option[T]] = (o: KvObject[T]) => if (o != null) Option(o.getValue) else None
-    val p = Promise[Option[T]]()
-    resource(key).get(classy[T], key.ref).on(cb[KvObject[T], Option[T]](getf, p))
+  def mkFuture[I, O](req: OrchestrateRequest[I], x: id[I, O]): Future[O] = {
+    val p = Promise[O]()
+    req.on(cb[I, O](x, p))
     p.future
   }
 
   /**
-    * get the latest value associated with the given key
-    */
-  def list(lim: Int=20): Future[List[T]] = {
-    def listf: id[KvList[T],List[T]] = (lr: KvList[T]) => lr.iterator().map( kvo => kvo.getValue ).toList
-    val p = Promise[List[T]]()
-    resource.limit(lim).get(classy[T]).on(cb[KvList[T],List[T]](listf, p))
-    p.future
-  }
+   * get the latest value associated with the given key
+   */
+  def get(key: Key): Future[Option[T]] = mkFuture(resource(key).get(classy[T]), getf)
 
-  def delete(key: Key, purge: Boolean = false): Future[Boolean] = {
-    def deletef: id[java.lang.Boolean, Boolean] = (o: java.lang.Boolean) => o
-    val p = Promise[Boolean]()
-    resource(key).delete(purge)
-      .on(cb(deletef, p))
-    p.future
-  }
+  /**
+   * get a specific version of a key, this could actually be a value
+   * from back in history and not the current value.
+   */
+  def get(key: VersionedKey): Future[Option[T]] = mkFuture(resource(key).get(classy[T]), getf)
 
-  def post(obj: T): Future[KvMetadata] = {
-    val p = Promise[KvMetadata]()
-    client.postValue(collection,obj).on(cb(metafunc, p))
-    p.future
-  }
+  /**
+   * a list of all items in a collection
+   */
+  def list(lim: Int = 20): Future[List[T]] = mkFuture(resource.limit(lim).get(classy[T]), listf)
 
-  def put(key: Key, obj: T): Future[KvMetadata] = {
-    val p = Promise[KvMetadata]()
-    resource(key).put(obj).on(cb(metafunc, p))
-    p.future
-  }
+  /**
+   * a list of all items in a collection starting at startKey.
+   */
+  def list(lim: Int, startKey: Key, inclusive: Boolean): Future[List[T]] = mkFuture(
+    resource.startKey(startKey.key).inclusive(inclusive).limit(lim).get(classy[T]),
+    listf
+  )
 
-  def insert(key: Key, obj: T): Future[KvMetadata] = {
-    val p = Promise[KvMetadata]()
-    resource(key).ifAbsent.put(obj).on(cb(metafunc, p))
-    p.future
-  }
+  /**
+   * unconditionally delete the value at key. if purge is true then
+   * the key and ref history is deleted.
+   */
+  def delete(key: Key, purge: Boolean = false): Future[Boolean] = mkFuture(resource(key).delete(purge), deletef)
 
-  def put(key: VersionedKey, obj: T): Future[KvMetadata] = {
-    def putD(key: VersionedKey, obj: T)(implicit tag: ClassTag[T]): Future[KvMetadata] = {
-    val p = Promise[KvMetadata]()
-    resource(key).ifMatch(key.ref).put(obj).on(cb(metafunc, p))
-    p.future
-    }
-    putD(key,obj)
-  }
+  /**
+   * upsert a value into the store and autogenerate a key.
+   */
+  def put(obj: T): Future[VersionedKey] = mkFuture(client.postValue(collection, obj), keyfunc)
 
-  def patch(key: Key, adds: Map[String, String], moves: Map[String, String], tests: Map[String, String]): Future[KvMetadata] = {
-    val p = Promise[KvMetadata]()
+  /**
+   * upsert a value into the store at key.
+   */
+  def put(key: Key, obj: T): Future[VersionedKey] = mkFuture(resource(key).put(obj), keyfunc)
+
+  /**
+   * put an object into the store if, and only if, the current version
+   * (the ref) matches the supplied reference. The returned value will
+   * be either the new ref or a failure indicator.
+   */
+  def put(key: VersionedKey, obj: T): Future[VersionedKey] = mkFuture(resource(key).ifMatch(key.ref).put(obj), keyfunc)
+
+  /**
+   *  put and object into the store only if there is no value
+   *  associated with the key. a normal put simply does and upsert
+   *  this adds the ability to fail if the key has already been used.
+   */
+  def insert(key: Key, obj: T): Future[VersionedKey] = insert(key, obj, true)
+
+  /**
+   *  put and object into the store only if there is no value
+   *  associated with the key. a normal put simply does and upsert
+   *  this adds the ability to fail if the key has already been used.
+   */
+  def insert(key: Key, obj: T, ifAbsent: Boolean): Future[VersionedKey] = mkFuture(resource(key).ifAbsent(ifAbsent).put(obj), keyfunc)
+
+  /**
+   * a patch call has three possible types of field effect and these
+   * are passed in via a JsonPatch object. This constructs and builds
+   * that object.
+   */
+  def patcher(adds: Map[String, String], moves: Map[String, String], tests: Map[String, String]) = {
     val patch = JsonPatch.builder()
     tests map { case (key, value) => patch.test(key, value) }
     adds.map { case (key, value) => patch.add(key, value) }
     moves.map { case (key, value) => patch.add(key, value) }
-    resource(key).patch(patch.build).on(cb(metafunc, p))
-    p.future
+    patch.build
   }
 
-  def patch(key: VersionedKey, adds: Map[String, String] = Map(), moves: Map[String, String] = Map(), tests: Map[String, String] = Map()): Future[KvMetadata] = {
-    val p = Promise[KvMetadata]()
-    val patch = JsonPatch.builder()
-    tests map { case (key, value) => patch.test(key, value) }
-    adds.map { case (key, value) => patch.add(key, value) }
-    moves.map { case (key, value) => patch.add(key, value) }
-    resource(key).patch(patch.build).on(cb(metafunc, p))
-    p.future
-  }
+  /**
+   * changing a value with put requires the object to have been read
+   * first. this allows for changes to an object without that initial
+   * read.
+   */
+  def patch(key: Key, adds: Map[String, String], moves: Map[String, String], tests: Map[String, String]): Future[VersionedKey] =
+    mkFuture(resource(key).patch(patcher(adds, moves, tests)), keyfunc)
 
-  def merge(key: Key, jsonMerge: String): Future[KvMetadata] = {
-    val p = Promise[KvMetadata]()
-    resource(key).merge(jsonMerge).on(cb(metafunc, p))
-    p.future
-  }
+  /**
+   * a slightly more constricted patch, adding a ref... although
+   * without a read it's questionable if you can actually do
+   * this. changing a value with put requires the object to have been
+   * read first. this allows for changes to an object without that
+   * initial read.
+   */
+  def patch(
+    key: VersionedKey,
+    adds: Map[String, String] = Map(),
+    moves: Map[String, String] = Map(),
+    tests: Map[String, String] = Map()
+  ): Future[VersionedKey] = mkFuture(resource(key).patch(patcher(adds, moves, tests)), keyfunc)
+
+  def merge(key: Key, jsonMerge: String): Future[VersionedKey] = mkFuture(resource(key).merge(jsonMerge), keyfunc)
 
 }

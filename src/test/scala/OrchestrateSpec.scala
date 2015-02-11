@@ -42,17 +42,16 @@ class OrchestrateSpec extends FlatSpec with Matchers {
   val ralph = new S("ralph","ralphs text",List())
 
   "Collection" should "support put kv operation" in {
-    Await.result(c.put(bobKey, bob),1 second)
+    Await.result(c.put(bobKey, bob),5 second)
   }
   it should "support get kv operation" in {
-    Await.result(c.put(bobKey, bob),1 second)
-    val u = Await.result(c.get(bobKey),1 second)
+    Await.result(c.put(bobKey, bob),5 second)
+    val u = Await.result(c.get(bobKey),5 second)
     u.get.name should === ("bob")
   }
   it should "support getref kv operation" in {
-    val md = Await.result(c.put(ralphKey,ralph),4 second)
-    val ralphRefKey = new KvRefKey(ralphKey.key,md.getRef())
-    val u = Await.result(c.get(ralphRefKey),4 second)
+    val added = Await.result(c.put(ralphKey,ralph),4 second)
+    val u = Await.result(c.get(added),5 second)
     u.map(usr => usr.name should === ("ralph")).getOrElse(false should === (true))
   }
   it should "support delete kv operation" in {

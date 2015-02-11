@@ -15,15 +15,16 @@ trait VersionedKey extends Key {
   def ref: String
 }
 
-trait KvStore[T,M] {
+trait KvStore[T] {
   def get(key: Key): Future[Option[T]]
   def get(key: VersionedKey): Future[Option[T]]
   def list(limit: Int): Future[List[T]]
-  def put(key: Key,value: T): Future[M]
-  def put(key: VersionedKey,value: T): Future[M]
-  def insert(key: Key,value: T): Future[M]
-  def patch(key: Key,adds: Map[String,String],moves: Map[String,String],tests: Map[String,String]): Future[M]
-  def patch(key: VersionedKey,adds: Map[String,String],moves: Map[String,String],tests: Map[String,String]): Future[M]
+  def put(value: T): Future[VersionedKey]
+  def put(key: Key,value: T): Future[VersionedKey]
+  def put(key: VersionedKey,value: T): Future[VersionedKey]
+  def insert(key: Key,value: T): Future[VersionedKey]
+  def patch(key: Key,adds: Map[String,String],moves: Map[String,String],tests: Map[String,String]): Future[VersionedKey]
+  def patch(key: VersionedKey,adds: Map[String,String],moves: Map[String,String],tests: Map[String,String]): Future[VersionedKey]
   def delete(key: Key,purge: Boolean): Future[Boolean]
 }
 

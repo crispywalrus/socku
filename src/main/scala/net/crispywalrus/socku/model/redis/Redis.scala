@@ -3,5 +3,5 @@ package socku
 package model
 package redis
 
-abstract class Redis[T,M] extends KvStore[T,M] {
+abstract class Redis[T,M] extends KvStore[T] {
 }
