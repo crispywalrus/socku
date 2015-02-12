@@ -11,15 +11,6 @@ import reflect.ClassTag
 import scala.util.{ Try, Success, Failure }
 import scala.language.implicitConversions
 
-trait KeyedCollection[T] {
-  case class KvKey(key: String,collection: String) extends Key
-  case class KvRefKey(key: String, ref: String,collection: String) extends VersionedKey
-
-  def collection: String
-  def apply(key: String): Key = KvKey(key,collection)
-  def apply(key: String,ref: String): VersionedKey = KvRefKey(key,ref,collection)
-}
-
 /**
  * collections are groupings of a single type of object so we model
  * it as a typed collection with a custom api.
@@ -45,7 +36,7 @@ class Collection[T: ClassTag](client: OrchestrateClient,val collection: String) 
    * to an anonymous closure.
    */
   val metafunc: id[KvMetadata, KvMetadata] = { identity(_) }
-  val keyfunc: id[KvMetadata, VersionedKey] = (m: KvMetadata) => KvRefKey(m.getKey, m.getRef, collection)
+  val keyfunc: id[KvMetadata, VersionedKey] = (m: KvMetadata) => KvRefKey(m.getKey, m.getRef, this)
   val getf: id[KvObject[T], Option[T]] = (o: KvObject[T]) => if (o != null) Option(o.getValue) else None
   val listf: id[KvList[T], List[T]] = (lr: KvList[T]) => lr.iterator().map(kvo => kvo.getValue).toList
   val deletef: id[java.lang.Boolean, Boolean] = (o: java.lang.Boolean) => o

@@ -15,6 +15,22 @@ trait VersionedKey extends Key {
   def ref: String
 }
 
+trait KeyedCollection[T] {
+  trait Collected {
+    def collection: KeyedCollection[T]
+  }
+
+  case class KvKey(key: String,collection: KeyedCollection[T]) extends Key with Collected
+  case class KvRefKey(key: String, ref: String,collection: KeyedCollection[T]) extends VersionedKey with Collected
+
+  def collection: String
+  def apply(key: String): Key = KvKey(key,this)
+  def apply(key: String,ref: String): VersionedKey = KvRefKey(key,ref,this)
+}
+
+/**
+  * KvStore represents a collection of keyed items all of the same type. 
+  */
 trait KvStore[T] {
   def get(key: Key): Future[Option[T]]
   def get(key: VersionedKey): Future[Option[T]]
@@ -28,8 +44,17 @@ trait KvStore[T] {
   def delete(key: Key): Future[Boolean]
 }
 
-trait GraphStore[T,Q] {
-  def get(key: Key,relation: Symbol): Future[Q]
-  def put(source: Key,related: Key,relation: Symbol): Future[Boolean]
-  def delete(origin: Key,related: Key)
+case class Kind[T](kind: Symbol,collection: KeyedCollection[T])
+case class PaginatedList[T](items: List[T],hasNext: Boolean)
+
+
+/**
+ * GraphStore represents the set of relationships between one kind and
+ * another. The type limit is totally an artifact of the underlying
+ * driver but still affects usage.
+ */
+trait GraphStore {
+  def get(key: Key,relation: Kind[VersionedKey]): Future[List[VersionedKey]]
+  def put(source: Key,relation: Kind[VersionedKey],related: Key): Future[Boolean]
+  def delete(origin: Key,related: Key,relation: Kind[VersionedKey])
 }
