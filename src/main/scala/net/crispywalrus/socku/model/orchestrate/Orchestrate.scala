@@ -5,29 +5,58 @@ package orchestrate
 
 import io.orchestrate.client._
 import io.orchestrate.client.jsonpatch._
+import com.fasterxml.jackson.databind.ObjectMapper
 import collection.JavaConversions._
 import concurrent._
 import reflect.ClassTag
 import scala.util.{ Try, Success, Failure }
 import scala.language.implicitConversions
+import com.netaporter.uri.Uri
+import com.netaporter.uri.dsl._
+
+case class KeyValueEntity[T : ClassTag](uri: Uri)(implicit mapper: ObjectMapper) {
+  def serialize(t: T): String = mapper.writeValueAsString(t)
+  def deserialize(s: String): T = mapper.readValue(s,classy[T])
+}
+
+trait Driver {
+  implicit def mapper: ObjectMapper
+  val baseUri = "https://api.orchestrate.io/v0"
+  def kv[T : ClassTag](collection: String,key: Key): KeyValueEntity[T] = KeyValueEntity[T](baseUri / collection / key.key)
+  def kv[T : ClassTag](collection: String,key: VersionedKey): KeyValueEntity[T] = KeyValueEntity[T](baseUri / collection / key.key / "ref" / key.ref)
+}
+
+abstract class Graph(client: OrchestrateClient) extends GraphStore {
+  def relation(key: Key,collection: String): RelationResource = client.relation(collection, key.key)
+  def extractKeys[T] : id[RelationList[T],List[VersionedKey]] = rl => List()
+  def extractValues[T] : id[RelationList[T],List[T]] = rl => List()
+
+  def mkFuture[I, O](req: OrchestrateRequest[I], x: id[I, O]): Future[O] = {
+    def cb[K, T](s: id[K, T], p: Promise[T]): ResponseAdapter[K] = new ResponseAdapter[K]() {
+      override def onSuccess(obj: K) = p.success(s(obj))
+      override def onFailure(ex: Throwable) = p.failure(ex)
+    }
+    val p = Promise[O]()
+    req.on(cb[I, O](x, p))
+    p.future
+  }
+
+  def get[T : ClassTag](key: Key,relationKey: Relation[VersionedKey]): Future[List[VersionedKey]] = {
+    mkFuture(relation(key,relationKey.collection.collection).get(classy[T],relationKey.kind.toString),extractKeys[T])
+  }
+}
 
 /**
  * collections are groupings of a single type of object so we model
  * it as a typed collection with a custom api.
  */
-class Collection[T: ClassTag](client: OrchestrateClient,val collection: String) extends KeyedCollection[T] with KvStore[T] {
+class Collection[T: ClassTag](client: OrchestrateClient,val collection: String) extends KeyedCollection[T] with KeyStore[T] {
 
   def search: CollectionSearchResource = client.searchCollection(collection)
   def events(key: Key): EventResource = client.event(collection, key.key)
-  def relation(key: Key): RelationResource = client.relation(collection, key.key)
   def resource(key: Key): KvResource = client.kv(collection, key.key)
   def resource(key: VersionedKey): KvResource = client.kv(collection, key.key)
   def resource: KvListResource = client.listCollection(collection)
-
-  def cb[K, T](s: id[K, T], p: Promise[T]): ResponseAdapter[K] = new ResponseAdapter[K]() {
-    override def onSuccess(obj: K) = p.success(s(obj))
-    override def onFailure(ex: Throwable) = p.failure(ex)
-  }
 
   /**
    * many methods return metadata, this does the identity transform
@@ -42,6 +71,11 @@ class Collection[T: ClassTag](client: OrchestrateClient,val collection: String) 
   val deletef: id[java.lang.Boolean, Boolean] = (o: java.lang.Boolean) => o
 
   def mkFuture[I, O](req: OrchestrateRequest[I], x: id[I, O]): Future[O] = {
+    def cb[K, T](s: id[K, T], p: Promise[T]): ResponseAdapter[K] = new ResponseAdapter[K]() {
+      override def onSuccess(obj: K) = p.success(s(obj))
+      override def onFailure(ex: Throwable) = p.failure(ex)
+    }
+
     val p = Promise[O]()
     req.on(cb[I, O](x, p))
     p.future
@@ -146,3 +180,4 @@ class Collection[T: ClassTag](client: OrchestrateClient,val collection: String) 
   def merge(key: Key, jsonMerge: String): Future[VersionedKey] = mkFuture(resource(key).merge(jsonMerge), keyfunc)
 
 }
+

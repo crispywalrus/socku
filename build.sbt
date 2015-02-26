@@ -1,4 +1,3 @@
-
 import NativePackagerKeys._
 
 name := "socku"
@@ -22,7 +21,8 @@ lazy val MacwireVer = "0.8.0"
 lazy val AkkaStreamz = "1.0-M3"
 
 resolvers++= Seq(
-  "bintray/non" at "http://dl.bintray.com/non/maven"
+  "bintray/non" at "http://dl.bintray.com/non/maven",
+  "brando" at "http://chrisdinn.github.io/releases/"
 )
 
 libraryDependencies++= Seq(
@@ -32,19 +32,23 @@ libraryDependencies++= Seq(
   "org.mashupbots.socko" %% "socko-webserver" % SockoVer,
   "org.mashupbots.socko" %% "socko-rest" % SockoVer,
   "org.mashupbots.socko" %% "socko-buildtools" % SockoVer,
+  "com.digital-achiever" %% "brando" % "2.0.6",
+  "com.netaporter" %% "scala-uri" % "0.4.4",
   "org.typelevel" %% "machinist" % "0.3.1",
   "com.github.mpilquist" %% "simulacrum" % "0.2.0",
   "org.scala-lang.modules" %% "scala-async" % "0.9.3",
   "com.softwaremill.macwire" %% "macros" % MacwireVer,
   "com.softwaremill.macwire" %% "runtime" % MacwireVer,
   "com.jteigen" %% "linx" % "0.2",
+  "me.lessis" %% "zoey-core" % "0.1.2",
   "com.fasterxml.jackson.core" % "jackson-databind" % JacksonVer,
-  "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.5.0",
+  "com.fasterxml.jackson.module" %% "jackson-module-scala" % JacksonVer,
   "com.fasterxml.jackson.module" % "jackson-module-afterburner" % JacksonVer,
   "io.orchestrate" % "orchestrate-client" % "0.8.0",
+  "com.spotify" % "dns" % "2.2.0",
   "com.typesafe.akka" %% "akka-testkit" % AkkaVer,
   "org.scalatest" %% "scalatest" % "2.2.4" % Test,
   "com.typesafe.akka" %% "akka-testkit" % AkkaVer % Test
 )
 
-packageArchetype.java_application
+enablePlugins(JavaAppPackaging,DockerPlugin)

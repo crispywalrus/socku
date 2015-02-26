@@ -15,6 +15,22 @@ trait VersionedKey extends Key {
   def ref: String
 }
 
+/**
+  * KvStore represents a collection of keyed items all of the same type. 
+  */
+trait KeyStore[T] {
+  def get(key: Key): Future[Option[T]]
+  def get(key: VersionedKey): Future[Option[T]]
+  def list(limit: Int): Future[List[T]]
+  def put(value: T): Future[VersionedKey]
+  def put(key: Key,value: T): Future[VersionedKey]
+  def put(key: VersionedKey,value: T): Future[VersionedKey]
+  def insert(key: Key,value: T): Future[VersionedKey]
+  def patch(key: Key,adds: Map[String,String],moves: Map[String,String],tests: Map[String,String]): Future[VersionedKey]
+  def patch(key: VersionedKey,adds: Map[String,String],moves: Map[String,String],tests: Map[String,String]): Future[VersionedKey]
+  def delete(key: Key): Future[Boolean]
+}
+
 trait KeyedCollection[T] {
   trait Collected {
     def collection: KeyedCollection[T]
@@ -28,25 +44,8 @@ trait KeyedCollection[T] {
   def apply(key: String,ref: String): VersionedKey = KvRefKey(key,ref,this)
 }
 
-/**
-  * KvStore represents a collection of keyed items all of the same type. 
-  */
-trait KvStore[T] {
-  def get(key: Key): Future[Option[T]]
-  def get(key: VersionedKey): Future[Option[T]]
-  def list(limit: Int): Future[List[T]]
-  def put(value: T): Future[VersionedKey]
-  def put(key: Key,value: T): Future[VersionedKey]
-  def put(key: VersionedKey,value: T): Future[VersionedKey]
-  def insert(key: Key,value: T): Future[VersionedKey]
-  def patch(key: Key,adds: Map[String,String],moves: Map[String,String],tests: Map[String,String]): Future[VersionedKey]
-  def patch(key: VersionedKey,adds: Map[String,String],moves: Map[String,String],tests: Map[String,String]): Future[VersionedKey]
-  def delete(key: Key): Future[Boolean]
-}
-
-case class Kind[T](kind: Symbol,collection: KeyedCollection[T])
+case class Relation[T](kind: Symbol,collection: KeyedCollection[T])
 case class PaginatedList[T](items: List[T],hasNext: Boolean)
-
 
 /**
  * GraphStore represents the set of relationships between one kind and
@@ -54,7 +53,7 @@ case class PaginatedList[T](items: List[T],hasNext: Boolean)
  * driver but still affects usage.
  */
 trait GraphStore {
-  def get(key: Key,relation: Kind[VersionedKey]): Future[List[VersionedKey]]
-  def put(source: Key,relation: Kind[VersionedKey],related: Key): Future[Boolean]
-  def delete(origin: Key,related: Key,relation: Kind[VersionedKey])
+  def get(key: Key,relation: Relation[VersionedKey]): Future[List[VersionedKey]]
+  def put(source: Key,relation: Relation[VersionedKey],related: Key): Future[Boolean]
+  def delete(origin: Key,related: Key,relation: Relation[VersionedKey])
 }
