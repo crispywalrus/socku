@@ -21,6 +21,7 @@ lazy val MacwireVer = "0.8.0"
 lazy val AkkaStreamz = "1.0-M3"
 
 resolvers++= Seq(
+  "bintray/softprops" at "http://dl.bintray.com/content/softprops/maven/",
   "bintray/non" at "http://dl.bintray.com/non/maven",
   "brando" at "http://chrisdinn.github.io/releases/"
 )
